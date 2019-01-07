@@ -1,0 +1,635 @@
+#% text_encoding = iso8859_1
+_package sw
+$
+
+_pragma(classify_level=restricted, topic={apps_dev_course})
+# Define the plugin class
+def_slotted_exemplar(:test1_plugin,
+	{{:current_trail, _unset, :readable},
+	 {:start_location, _unset, :readable},
+	 {:end_location, _unset, :readable}},
+	:plugin)
+$
+
+_pragma(classify_level=debug, topic={application_development_examples})
+test1_plugin.define_shared_constant(:databus_consumer_data_types,
+	{:map_selection,
+	 :active_map_view,
+	 :map_trail},
+	:public)
+$
+
+_pragma(classify_level=debug, topic={application_development_examples})
+test1_plugin.define_shared_constant(:databus_producer_data_types,
+	{:geometry_to_highlight,
+	 :set_map_selection},
+	:public)
+$
+
+_pragma(classify_level=restricted)
+_private _method test1_plugin.init(name, framework)
+	# Initialise slots
+	_super.init(name, framework)
+	>> _self
+_endmethod
+$
+
+_pragma(classify_level=debug, topic={application_development_examples})
+_method test1_plugin.init_actions()
+    # Create the actions defined by the plugin
+    _self.add_action(
+	sw_action.new( :activate_window,
+		       :engine, _self,
+		       :image, {:activate,:ui_resources},
+		       :action_message, :activate_window|()| ) )
+_endmethod
+$
+
+_pragma(classify_level=debug, topic={application_development_examples})
+test1_plugin.def_property( :x_offset,
+			       :type, :integer, :default_value, 0,
+			       :description, "X offset used for dialog activation")
+$
+
+_pragma(classify_level=debug, topic={application_development_examples})
+test1_plugin.def_property( :y_offset,
+			       :type, :integer, :default_value, 0,
+			       :description, "Y offset used for dialog activation")
+$
+
+_pragma(classify_level=debug, topic={application_development_examples})
+# Method for the plugin to activate the dialog box
+# A new dialog box is created only if one is not
+# already cached 
+_method test1_plugin.activate_window()
+    name << :test1
+    _if (d << _self.get_dialog(name)) _is _unset
+    _then
+	# Create and cache the dialog
+	d << test1.new_dialog(_self)
+	_self.cache_dialog(name, d)		
+    _endif
+    d.activate_relative_to( _self.message(:frame_title), _self.top_frame,
+			    _self.x_offset+900, _self.y_offset+100 )
+    >> d
+_endmethod
+$
+
+_pragma(classify_level=debug, topic={application_development_examples})
+_method test1_plugin.grp1_button_activity(number)
+	dataset << gis_program_manager.databases[:gis]
+	town_table << dataset.collections[:town]
+	pub_table << dataset.collections[:pub_rest]
+	
+	pred1 << predicate.new(:name, :eq, "Cambridge")
+	area_cambr << town_table.select(pred1).an_element().coverage
+	
+	pred2 << predicate.within(:location, area_cambr)
+	p_cambr << pub_table.select(pred2)
+	
+	gs << p_cambr.geometry_set(dataset.world, _unset, :location)
+	
+	_if number = 1
+	_then _self.databus_make_data_available(:geometry_to_highlight, gs) 
+	_elif number = 2
+	_then _self.databus_make_data_available(:set_map_selection, {_self, gs})
+	_elif number = 3
+	_then _self.export_selected(number)
+	_elif number = 4
+	_then _self.export_selected(number)
+	_endif
+_endmethod
+$
+
+_pragma(classify_level=debug, topic={application_development_examples})
+_method test1_plugin.export_selected(n)
+	map_sel << _self.databus_request_data(:map_selection)
+	sel_geom_set << map_sel[2]
+	sel_rwo_set << sel_geom_set.rwo_set()
+	
+	cee << collection_export_engine.new()
+	_protect
+		cee.add_collection(sel_rwo_set, :hetero_field_list,
+				   {:pub_rest, {:name, :type, :street, :cuisine},
+				    :hotel, {:name, :type, :address1},
+				    :park, {:name, :area, :seats},
+				    :pl_of_interest, {:name, :address1, :nearest_town}})
+
+		_if n=3
+		_then cee.export_to_excel(:filename, "C:\Users\rosenand\Desktop\aabb\export.xls")
+		_elif n=4
+		_then cee.export_to_word(:filename, "C:\Users\rosenand\Desktop\aabb\export.doc")
+		_endif
+	_protection
+		cee.close_current_stream()
+	_endprotect
+_endmethod
+$
+
+_pragma(classify_level=debug, topic={application_development_examples})
+_method test1_plugin.select_in_trail()
+	map_trail_data << _self.databus_request_data(:map_trail)
+	_if map_trail_data _isnt _unset
+	_then .current_trail << map_trail_data[2]
+	_else .current_trail << _unset
+	_endif
+	
+	trail_exists << .current_trail.current_segment_length() _isnt _unset
+	trail_closed << .current_trail.closed?
+	
+	_if (trail_exists _andif trail_closed) _is _false
+	_then _return
+	_endif
+
+
+	dataset << gis_program_manager.databases[:gis]
+	filtered_rwo_set << dataset.rwo_set().select(:collection, {:pub_rest})
+	# erinevad meetodid, erinevad objektid
+	# filtered_rwo_set << dataset.rwo_set().select(:collection, {:pub_rest, :hotel})
+	# print_ancestry(filtered_rwo_set)
+	filtered_geom_set << filtered_rwo_set.geometry_set(dataset.world)
+							  # field_name, :location)
+	
+	trail_geom_set << filtered_geom_set.select(:within, .current_trail.as_pseudo_geometry)
+
+	_self.databus_make_data_available(:set_map_selection, {_self, trail_geom_set})
+_endmethod
+$
+
+_pragma(classify_level=debug, topic={application_development_examples})
+_method test1_plugin.show_face()
+	f << frame.new("face drawing test")
+	c << canvas.new(f, 1000, 1000)
+	f.activate()
+
+# basic
+	x_nul << 500
+	y_nul << 500
+	center_point << coordinate.new(x_nul, y_nul)
+	pi << 3.14159
+	ls << line_style.new_with_properties(:width, 5)
+	fs << fill_style.new_with_properties(:foreground_colour, colour.called("black"))
+	canvas_elements << rope.new()
+
+# face
+	face_radius << 400
+	face << circle.new(center_point, face_radius)
+	canvas_elements.add_last(face)
+
+# nose
+	# outer
+	nose_outer_r << (face_radius/10).rounded
+	nose_outer << circle.new(center_point, nose_outer_r)
+	canvas_elements.add_last(nose_outer)
+	#inner
+	nose_inner_r << (face_radius/35).rounded
+	nose_inner << circle.new(center_point, nose_inner_r)
+	canvas_elements.add_last(nose_inner)
+	
+# eyes
+	eye_radius << (face_radius/8).rounded
+	eye_y << (y_nul - 0.25*y_nul).rounded
+# right eye
+	right_eye_x << (x_nul + 0.35*x_nul).rounded
+	right_eye_cp << coordinate.new(right_eye_x, eye_y)
+	right_eye << circle.new(right_eye_cp, eye_radius)
+	canvas_elements.add_last(right_eye)
+# left eye
+	left_eye_x << (x_nul - 0.35*x_nul).rounded
+	left_eye_cp << coordinate.new(left_eye_x, eye_y)
+	left_eye << circle.new(left_eye_cp, eye_radius)
+	canvas_elements.add_last(left_eye)
+
+	##
+	## point on circumference of circle:
+	## x = cx + r * cos(a)
+	## y = cy + r * sin(a)
+	##
+	
+# irises
+# right iris
+	# centre, c1 & c2
+	right_iris_cp1 << coordinate.new(right_eye_cp.x,
+					 right_eye_cp.y + eye_radius)
+	right_iris_cp2 << right_eye_cp
+	# start, a
+	right_iris_a << coordinate.new(right_eye_cp.x + eye_radius*cos(pi/4),
+				       right_eye_cp.y + eye_radius*sin(pi/4))
+	# end, b
+	right_iris_b << coordinate.new(right_eye_cp.x + eye_radius*cos(3*pi/4),
+				       right_eye_cp.y + eye_radius*sin(3*pi/4))
+	
+	right_iris_up << arc.new(right_iris_a, right_iris_cp1, right_iris_b)
+	canvas_elements.add_last(right_iris_up)
+	right_iris_down << arc.new(right_iris_a, right_iris_cp2, right_iris_b)
+	canvas_elements.add_last(right_iris_down)
+# left iris
+	# centre, c1 & c2
+	left_iris_cp1 << coordinate.new(left_eye_cp.x,
+					left_eye_cp.y + eye_radius)
+	left_iris_cp2 << left_eye_cp
+	# start, a
+	left_iris_a << coordinate.new(left_eye_cp.x + eye_radius*cos(pi/4),
+				      left_eye_cp.y + eye_radius*sin(pi/4))
+	# end, b
+	left_iris_b << coordinate.new(left_eye_cp.x + eye_radius*cos(3*pi/4),
+				      left_eye_cp.y + eye_radius*sin(3*pi/4))
+	
+	left_iris_up << arc.new(left_iris_a, left_iris_cp1, left_iris_b)
+	canvas_elements.add_last(left_iris_up)
+	left_iris_down << arc.new(left_iris_a, left_iris_cp2, left_iris_b)
+	canvas_elements.add_last(left_iris_down)
+
+# mouth
+	mouth_y << (y_nul + 0.35*y_nul).rounded
+	# start, a
+	mouth_a << coordinate.new(right_eye_x,
+				  mouth_y)
+	# end, b
+	mouth_b << coordinate.new(left_eye_x,
+				  mouth_y)
+	
+	mouth << arc.new(mouth_a, center_point, mouth_b)
+	canvas_elements.add_last(mouth)
+	
+# cheekbones
+# right cheekbone
+	# centre
+	right_cb_cp << coordinate.new(mouth_a.x - eye_radius*cos((3*pi)/4),
+				      mouth_a.y - eye_radius*sin((3*pi)/4))
+	# start, a
+	right_cb_a << coordinate.new(right_cb_cp.x + eye_radius*cos(pi/2),
+				     right_cb_cp.y + eye_radius*sin(pi/2))
+	# end, b
+	right_cb_b << coordinate.new(right_cb_cp.x + eye_radius*cos(pi),
+				     right_cb_cp.y + eye_radius*sin(pi))
+	right_cb << arc.new(right_cb_a, right_cb_cp, right_cb_b)
+	canvas_elements.add_last(right_cb)
+# left cheekbone
+	# centre
+	left_cb_cp << coordinate.new(mouth_b.x - eye_radius*cos(pi/4),
+				     mouth_b.y - eye_radius*sin(pi/4))
+	# start, a
+	left_cb_a << coordinate.new(left_cb_cp.x + eye_radius*cos(pi/2),
+				    left_cb_cp.y + eye_radius*sin(pi/2))
+	# end, b
+	left_cb_b << coordinate.new(left_cb_cp.x + eye_radius*cos(0),
+				    left_cb_cp.y + eye_radius*sin(0))
+	left_cb << arc.new(left_cb_a, left_cb_cp, left_cb_b)
+	canvas_elements.add_last(left_cb)
+
+# tongue
+	##
+	## mouth_radius << (mouth_a.x - center_point.x)/cos()
+	## cos() << LK/H
+	## LK << right_eye_x - center_point_x
+	## H << ((x2-x1).sq + (y2-y1).sq).sqrt
+	##
+	
+	x_diff << ((mouth_a.x - center_point.x).squared)
+	y_diff << ((mouth_a.y - center_point.y).squared)
+	# h << (x_diff + y_diff ).sqrt
+	mouth_radius << (x_diff + y_diff ).sqrt
+	# lk << right_eye_x - center_point.x
+	# angle_cos << lk/h
+	# mouth_radius << (mouth_a.x - center_point.x)/angle_cos
+	tongue_radius << face_radius + 0.2*face_radius
+
+	# start, a
+	tongue_a << coordinate.new(center_point.x + mouth_radius*cos((9*pi)/16),
+				   center_point.y + mouth_radius*sin((9*pi)/16))
+	# end, b
+	tongue_b << coordinate.new(center_point.x + mouth_radius*cos((5*pi)/16),
+				   center_point.y + mouth_radius*sin((5*pi)/16))
+	# control point, cp
+	tongue_cp << coordinate.new(center_point.x + tongue_radius*cos((7*pi)/16),
+				    center_point.y + tongue_radius*sin((7*pi)/16))
+	tongue << rational_b_spline.new_with_xy(tongue_a.x, tongue_a.y,
+						tongue_cp.x, tongue_cp.y,
+						tongue_b.x, tongue_b.y)
+	canvas_elements.add_last(tongue)
+	
+# hair
+	hair_radius << face_radius + 0.125*face_radius
+	_for i _over range(0, 10)
+	_loop
+		# 232.5 [+ 7.5 samm] kuni 307.5
+		a <<((31+i)/24)*pi
+		# start form point on face
+		hair_start << coordinate.new(center_point.x + face_radius*cos(a),
+					     center_point.y + face_radius*sin(a))
+		# line end 50px away
+		hair_end << coordinate.new(center_point.x + hair_radius*cos(a),
+					   center_point.y + hair_radius*sin(a))
+		
+		hair << coords_vector.new_with_xy(hair_start.x,
+						  hair_start.y,
+						  hair_end.x,
+						  hair_end.y)
+		canvas_elements.add_last(hair)
+	_endloop
+
+	_for i _over canvas_elements.elements()
+	_loop
+		fill? << _false
+		el << i
+		
+		_if el _is nose_inner _or
+		    el _is right_iris_up _or
+		    el _is right_iris_down _or
+		    el _is left_iris_up _or
+		    el _is left_iris_down
+		_then
+			fill? << _true
+		_endif
+		el.draw_on(c, ls)
+		
+		_if fill?
+		_then
+			el.fill_on(c, fs)
+		_endif
+	_endloop
+_endmethod
+$
+
+_pragma(classify_level=debug, topic={application_development_examples})
+_method test1_plugin.set_start_location()
+	map_sel << _self.databus_request_data(:map_selection)
+	sel_geom_set << map_sel[2]
+	
+	_if sel_geom_set _isnt _unset _andif
+	    sel_geom_set.size _is 1
+	_then .start_location << sel_geom_set
+	_else .start_location << _unset
+	_endif
+_endmethod
+$
+
+_pragma(classify_level=debug, topic={application_development_examples})
+_method test1_plugin.set_end_location()
+	map_sel << _self.databus_request_data(:map_selection)
+	sel_geom_set << map_sel[2]
+	
+	_if sel_geom_set _isnt _unset _andif
+	    sel_geom_set.size _is 1 _andif
+	    sel_geom_set _isnt .start_location
+	_then .end_location << sel_geom_set
+	_else .end_location << _unset
+	_endif
+_endmethod
+$
+
+_pragma(classify_level=debug, topic={application_development_examples})
+_method test1_plugin.get_angle(start_x, start_y, end_x, end_y)
+	pi << 3.14159
+	r2d << 180/pi
+	
+	vastaskaatet << ((end_y - start_y).squared).sqrt
+	lahiskaatet << ((end_x - start_x).squared).sqrt
+
+	_if end_x > start_x _and end_y > start_y 
+	_then
+		# I veerand
+		angle << atan2(vastaskaatet, lahiskaatet)
+		angle_rad << angle
+	      
+	_elif end_x > start_x _and end_y < start_y
+	_then
+		# IV veerand
+		angle << atan2(lahiskaatet, vastaskaatet)
+		angle_rad << (3*pi)/2 + atan2( lahiskaatet, vastaskaatet)
+		
+	_elif end_x < start_x _and end_y > start_y
+	_then
+		# II veerand
+		angle << atan2(lahiskaatet, vastaskaatet)
+		angle_rad << pi/2 + atan2( lahiskaatet, vastaskaatet)
+	_else
+		# III veerand
+		angle << atan2(lahiskaatet, vastaskaatet)
+		angle_rad << (3*pi)/2 - atan2( lahiskaatet, vastaskaatet)
+	_endif
+	angle_deg << angle_rad*r2d
+	## face arvestab nurka 90 kraadi nihkes
+	angle_rad << angle_rad - pi/2
+	
+	>> angle_rad
+_endmethod
+$
+
+_pragma(classify_level=debug, topic={application_development_examples})
+_method test1_plugin.get_distance(start_x, start_y, end_x, end_y)
+	x_diff << ((end_x - start_x).squared)
+	y_diff << ((end_y - start_y).squared)
+	h << (x_diff + y_diff ).sqrt
+	h_m << h/1000
+
+	>> h_m
+_endmethod
+$
+
+_pragma(classify_level=debug, topic={application_development_examples})
+_method test1_plugin.draw_face_map()
+	_if .start_location _is _unset
+	_then _return
+	_endif
+
+	_self.set_end_location()
+	_if .end_location _is _unset
+	_then _return
+	_endif
+
+	start_x << .start_location.an_element().coord.x
+	start_y << .start_location.an_element().coord.y
+	end_x << .end_location.an_element().coord.x
+	end_y << .end_location.an_element().coord.y
+
+	angle << _self.get_angle(start_x, start_y, end_x, end_y)
+	distance << _self.get_distance(start_x, start_y, end_x, end_y)
+
+	tr_rotate << transform.rotate(angle)
+	tr_scale << transform.scale(distance)
+	tr_move << transform.translate(start_x, start_y)
+	
+# basic
+	pi << 3.14159
+	meters << 1000
+	amv << _self.databus_request_data(:active_map_view)
+	c << amv.window
+	x_nul << 0
+	y_nul << 0
+	center_point << coordinate.new(x_nul, y_nul)
+	ls << line_style.new_with_properties(:width, 2*500*meters)
+	fs << fill_style.new_with_properties(:foreground_colour, colour.called("black"))
+	face_elements << rope.new()
+	
+# face
+	face_radius << 1*meters
+	face << circle.new(center_point, face_radius)
+	face_elements.add_last(face)
+	
+# nose
+	# outer
+	nose_outer_r << (face_radius/10).rounded
+	nose_outer << circle.new(center_point, nose_outer_r)
+	face_elements.add_last(nose_outer)
+	#inner
+	nose_inner_r << (face_radius/35).rounded
+	nose_inner << circle.new(center_point, nose_inner_r)
+	face_elements.add_last(nose_inner)
+
+# eyes
+	eye_radius << (face_radius/8).rounded
+	# et sAiliks sama suhe, mis tavalise canvase peal:
+	# saadud: 125/400
+	eye_y << (y_nul + 0.3125*face_radius).rounded
+# right eye
+	# saadud: 175/400
+	right_eye_x << (x_nul + 0.4375*face_radius).rounded
+	right_eye_cp << coordinate.new(right_eye_x, eye_y)
+	right_eye << circle.new(right_eye_cp, eye_radius)
+	face_elements.add_last(right_eye)
+# left eye
+	left_eye_x << (x_nul - 0.4375*face_radius).rounded
+	left_eye_cp << coordinate.new(left_eye_x, eye_y)
+	left_eye << circle.new(left_eye_cp, eye_radius)
+	face_elements.add_last(left_eye)
+	
+# irises - ei muuda nurkasid, las mapi peal vaatab nAgu Ules
+# right iris
+	# centre, c1 & c2
+	right_iris_cp1 << coordinate.new(right_eye_cp.x,
+					 right_eye_cp.y + eye_radius)
+	right_iris_cp2 << right_eye_cp
+	# start, a
+	right_iris_a << coordinate.new(right_eye_cp.x + eye_radius*cos(pi/4),
+				       right_eye_cp.y + eye_radius*sin(pi/4))
+	# end, b
+	right_iris_b << coordinate.new(right_eye_cp.x + eye_radius*cos(3*pi/4),
+				       right_eye_cp.y + eye_radius*sin(3*pi/4))
+	
+	right_iris_up << arc.new(right_iris_a, right_iris_cp1, right_iris_b)
+	face_elements.add_last(right_iris_up)
+	
+	right_iris_down << arc.new(right_iris_a, right_iris_cp2, right_iris_b)
+	face_elements.add_last(right_iris_down)
+# left iris
+	# centre, c1 & c2
+	left_iris_cp1 << coordinate.new(left_eye_cp.x,
+					left_eye_cp.y + eye_radius)
+	left_iris_cp2 << left_eye_cp
+	# start, a
+	left_iris_a << coordinate.new(left_eye_cp.x + eye_radius*cos(pi/4),
+				      left_eye_cp.y + eye_radius*sin(pi/4))
+	# end, b
+	left_iris_b << coordinate.new(left_eye_cp.x + eye_radius*cos(3*pi/4),
+				      left_eye_cp.y + eye_radius*sin(3*pi/4))
+	
+	left_iris_up << arc.new(left_iris_a, left_iris_cp1, left_iris_b)
+	face_elements.add_last(left_iris_up)
+
+	left_iris_down << arc.new(left_iris_a, left_iris_cp2, left_iris_b)
+	face_elements.add_last(left_iris_down)
+	
+# mouth
+	mouth_y << (y_nul - 0.4375*face_radius ).rounded
+	# start, a
+	mouth_a << coordinate.new(right_eye_x,
+				  mouth_y)
+	# end, b
+	mouth_b << coordinate.new(left_eye_x,
+				  mouth_y)
+	
+	mouth << arc.new(mouth_a, center_point, mouth_b)
+	face_elements.add_last(mouth)
+
+# cheekbones
+# right cheekbone
+	# centre
+	right_cb_cp << coordinate.new(mouth_a.x + eye_radius*cos(pi/4),
+				      mouth_a.y + eye_radius*sin(pi/4))
+	# start, a
+	right_cb_a << coordinate.new(right_cb_cp.x + eye_radius*cos((3*pi)/2),
+				     right_cb_cp.y + eye_radius*sin((3*pi)/2))
+	# end, b
+	right_cb_b << coordinate.new(right_cb_cp.x + eye_radius*cos(pi),
+				     right_cb_cp.y + eye_radius*sin(pi))
+	right_cb << arc.new(right_cb_a, right_cb_cp, right_cb_b)
+	face_elements.add_last(right_cb)
+# left cheekbone
+	# centre
+	left_cb_cp << coordinate.new(mouth_b.x + eye_radius*cos((3*pi)/4),
+				     mouth_b.y + eye_radius*sin((3*pi)/4))
+	# start, a
+	left_cb_a << coordinate.new(left_cb_cp.x + eye_radius*cos((3*pi)/2),
+				    left_cb_cp.y + eye_radius*sin((3*pi)/2))
+	# end, b
+	left_cb_b << coordinate.new(left_cb_cp.x + eye_radius*cos(0),
+				    left_cb_cp.y + eye_radius*sin(0))
+	left_cb << arc.new(left_cb_a, left_cb_cp, left_cb_b)
+	face_elements.add_last(left_cb)
+	
+# tongue
+	x_diff << ((mouth_a.x - center_point.x).squared)
+	y_diff << ((mouth_a.y - center_point.y).squared)
+	mouth_radius << (x_diff + y_diff ).sqrt
+	tongue_radius << face_radius + 0.2*face_radius
+	# start, a
+	tongue_a << coordinate.new(center_point.x + mouth_radius*cos((23*pi)/16),
+				   center_point.y + mouth_radius*sin((23*pi)/16))
+	# end, b
+	tongue_b << coordinate.new(center_point.x + mouth_radius*cos((27*pi)/16),
+				   center_point.y + mouth_radius*sin((27*pi)/16))
+	# control point, cp
+	tongue_cp << coordinate.new(center_point.x + tongue_radius*cos((25*pi)/16),
+				    center_point.y + tongue_radius*sin((25*pi)/16))
+	tongue << rational_b_spline.new_with_xy(tongue_a.x, tongue_a.y,
+						tongue_cp.x, tongue_cp.y,
+						tongue_b.x, tongue_b.y)
+	face_elements.add_last(tongue)
+
+# hair
+	hair_radius << face_radius + 0.125*face_radius
+	_for i _over range(0, 10)
+	_loop
+		a <<((17-i)/24)*pi
+		# start form point on face
+		hair_start << coordinate.new(center_point.x + face_radius*cos(a),
+					     center_point.y + face_radius*sin(a))
+		# end 0.125*face_radius away
+		hair_end << coordinate.new(center_point.x + hair_radius*cos(a),
+					   center_point.y + hair_radius*sin(a))
+		
+		hair << coords_vector.new_with_xy(hair_start.x,
+						  hair_start.y,
+						  hair_end.x,
+						  hair_end.y)
+		face_elements.add_last(hair)
+	_endloop
+
+	_for i _over face_elements.elements()
+	_loop
+		fill? << _false
+		el << i
+		
+		_if el _is nose_inner _or
+		    el _is right_iris_up _or
+		    el _is right_iris_down _or
+		    el _is left_iris_up _or
+		    el _is left_iris_down
+		_then
+			fill? << _true
+		_endif
+		
+		el << el.transform(tr_rotate)
+		el << el.transform(tr_scale)
+		el << el.transform(tr_move)
+		el.draw_on(c, ls)
+		
+		_if fill?
+		_then
+			el.fill_on(c, fs)
+		_endif
+	_endloop
+_endmethod
+$

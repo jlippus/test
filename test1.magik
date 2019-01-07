@@ -1,0 +1,155 @@
+#% text_encoding = iso8859_1
+_package sw
+$
+
+_pragma(classify_level=debug, topic={application_development_examples}, usage={internal})
+# The exemplar inherits from model, subclassing the
+# activate_in() method to build the actual User Interface
+def_slotted_exemplar(:test1,
+	{},
+	:model)
+$
+
+_pragma(classify_level=debug, topic={application_development_examples})
+_method test1.build_gui(container)
+    ##  Builds the GUI in A_CONTAINER.
+    .top_frame << container.top_frame
+    >> _self.activate_in(container)
+_endmethod
+$
+
+_pragma(classify_level=debug, topic={application_development_examples})
+_method test1.activate_in(a_frame)
+    rc << rowcol.new(a_frame, 3, 1, :pixel,
+		     :style, :top_level)
+    button_width << 175
+    
+    # group 1
+    gb1 << group_box.new(rc, "Beginner Level 1",
+			 :row, 1,
+			 :col, 1)
+    rc1 << rowcol.new(gb1, 4, 1, :pixel,
+		      :style, :group_box)
+
+    highlight_button << button_item.new(rc1, _unset, _self, #parent, label, model
+					:|highlight_klick()|, #message sent to model
+					:row, 1,
+					:col, 1,
+					:identifier, :highlight_button,
+					:min_width, button_width)
+    select_button << button_item.new(rc1, _unset, _self,
+				     :|select_klick()|,
+				     :row, 2,
+				     :col, 1,
+				     :identifier, :select_button,
+				     :min_width, button_width)
+    excel_button << button_item.new(rc1, _unset, _self,
+				    :|excel_klick()|,
+				    :row, 3,
+				    :col, 1,
+				    :identifier, :excel_button,
+				    :min_width, button_width)
+    word_button << button_item.new(rc1, _unset, _self,
+				   :|word_klick()|,
+				   :row, 4,
+				   :col, 1,
+				   :identifier, :word_button,
+				   :min_width, button_width)
+    
+    # group 2
+    gb2 << group_box.new(rc, "Beginner Level 2",
+    			 :row, 2,
+    			 :col, 1)
+    rc2 << rowcol.new(gb2, 1, 1, :pixel,
+    		      :style, :group_box)
+    
+    select_trail_button << button_item.new(rc2, _unset, _self,
+					   :|select_trail_klick()|,
+					   :row, 1,
+					   :col, 1,
+					   :identifier, :select_trail_button,
+					   :min_width, button_width)
+    
+    # group 3
+    gp3 << group_box.new(rc, "Beginner Level 3",
+			 :row, 3,
+			 :col, 1)
+    rc3 << rowcol.new(gp3, 3, 1, :pixel,
+		      :style, :group_box)
+
+    show_face_button << button_item.new(rc3, _unset, _self,
+					:|show_face_klick()|,
+					:row, 1,
+					:col, 1,
+					:identifier, :show_face_button,
+					:min_width, button_width)
+    set_start_button << button_item.new(rc3, _unset, _self,
+					:|set_start_klick()|,
+					:row, 2,
+					:col, 1,
+					:identifier, :set_start_button,
+					:min_width, button_width)
+    face_map_button << button_item.new(rc3, _unset, _self,
+				       :|face_map_klick()|,
+				       :row, 3,
+				       :col, 1,
+				       :identifier, :face_map_button,
+				       :min_width, button_width)
+    
+    >> rc
+_endmethod
+$
+
+_pragma(classify_level=debug, topic={application_development_examples})
+_method test1.highlight_klick()
+	# test1_plugin ---- loob uue, millel pole seost
+	# _self.parent_model ---- seob end olemasolevaga
+	_self.parent_model.grp1_button_activity(1)
+_endmethod
+$
+
+_pragma(classify_level=debug, topic={application_development_examples})
+_method test1.select_klick()
+	_self.parent_model.grp1_button_activity(2)
+_endmethod
+$
+
+_pragma(classify_level=debug, topic={application_development_examples})
+_method test1.excel_klick()
+	_self.parent_model.grp1_button_activity(3)
+_endmethod
+$
+
+_pragma(classify_level=debug, topic={application_development_examples})
+_method test1.word_klick()
+	_self.parent_model.grp1_button_activity(4)
+_endmethod
+$
+
+_pragma(classify_level=debug, topic={application_development_examples})
+_method test1.select_trail_klick()
+	_self.parent_model.select_in_trail()
+_endmethod
+$
+
+_pragma(classify_level=debug, topic={application_development_examples})
+_method test1.show_face_klick()
+	# joonistab nAo canvasele, kus nurgad ja y-telg vastupidi
+	_self.parent_model.show_face()
+	write("klick SHOW_FACE done")
+_endmethod
+$
+
+_pragma(classify_level=debug, topic={application_development_examples})
+_method test1.set_start_klick()
+	_self.parent_model.set_start_location()
+	write("klick SET_START done")
+_endmethod
+$
+
+_pragma(classify_level=debug, topic={application_development_examples})
+_method test1.face_map_klick()
+	_self.parent_model.draw_face_map()
+	write("klick DRAW_FACE_ON_MAP done")
+_endmethod
+$
